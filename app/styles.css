@@ -49,3 +49,17 @@ h3 { margin: 0; font-size: 25px; }
 .insane { background: #ec4899; color: white; }
 @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } .metrics { grid-template-columns: repeat(2, minmax(0,1fr)); } .legendGrid { grid-template-columns: 1fr; } }
 @media (max-width: 620px) { .hero { padding: 16px; } .topbar { align-items: flex-start; flex-direction: column; } .metrics { grid-template-columns: 1fr; } .verdict { padding: 20px; min-height: auto; } .mapCard, .mapShell, #windy { min-height: 420px; height: 420px; } }
+
+.dailyForecastGrid {
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+}
+
+.dailySlot {
+  min-height: 260px;
+}
+
+@media (max-width: 900px) {
+  .dailyForecastGrid {
+    grid-template-columns: 1fr;
+  }
+}
