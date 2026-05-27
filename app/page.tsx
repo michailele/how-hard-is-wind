@@ -36,6 +36,16 @@ type ForecastPayload = {
   forecast: ForecastRow[];
 };
 
+type DailyForecast = {
+  key: string;
+  title: string;
+  windKnots: number;
+  gustKnots: number;
+  tempC: number | null;
+  precipMm: number;
+  weatherText: string;
+};
+
 function getWindLevel(speedKnots: number) {
   return windLevels.find((item) => speedKnots >= item.min && speedKnots <= item.max) || windLevels[windLevels.length - 1];
 }
@@ -54,13 +64,57 @@ function compass(deg: number) {
   return dirs[Math.round(deg / 45) % 8];
 }
 
-function formatTime(iso: string) {
-  return new Intl.DateTimeFormat("ru-RU", { weekday: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Moscow" }).format(new Date(iso));
+function dayKey(iso: string) {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
+}
+
+function dayTitle(iso: string, index: number) {
+  if (index === 0) return "Сегодня";
+  if (index === 1) return "Завтра";
+  const formatted = new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/Moscow" }).format(new Date(iso));
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+}
+
+function weatherSummary(totalPrecip: number, rows: ForecastRow[]) {
+  if (totalPrecip <= 0.1) return "без осадков";
+  if (rows.some((row) => row.weatherText.includes("снег"))) return "снег";
+  return "дождь";
+}
+
+function buildDailyForecast(rows: ForecastRow[]) {
+  const groups = new Map<string, ForecastRow[]>();
+
+  rows.forEach((row) => {
+    const key = dayKey(row.iso);
+    groups.set(key, [...(groups.get(key) || []), row]);
+  });
+
+  return Array.from(groups.entries()).slice(0, 3).map(([key, group], index): DailyForecast => {
+    const avgWind = Math.round(group.reduce((sum, row) => sum + row.windKnots, 0) / group.length);
+    const avgGust = Math.round(group.reduce((sum, row) => sum + row.gustKnots, 0) / group.length);
+    const temps = group.map((row) => row.tempC).filter((value): value is number => value != null);
+    const avgTemp = temps.length ? Math.round(temps.reduce((sum, value) => sum + value, 0) / temps.length) : null;
+    const totalPrecip = Number(group.reduce((sum, row) => sum + row.precipMm, 0).toFixed(1));
+
+    return {
+      key,
+      title: dayTitle(group[0].iso, index),
+      windKnots: avgWind,
+      gustKnots: avgGust,
+      tempC: avgTemp,
+      precipMm: totalPrecip,
+      weatherText: weatherSummary(totalPrecip, group)
+    };
+  });
 }
 
 async function getForecast(): Promise<ForecastPayload | null> {
   try {
-    const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000";
+    const baseUrl = process.env.URL
+      ? process.env.URL
+      : process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : "http://localhost:3000";
     const res = await fetch(`${baseUrl}/api/forecast`, { next: { revalidate: 900 } });
     if (!res.ok) return null;
     return res.json();
@@ -75,8 +129,8 @@ const fallback: ForecastPayload = {
   current: { ts: Date.now(), iso: new Date().toISOString(), windKnots: 7, gustKnots: 23, directionDeg: 270, tempC: 10, precipMm: 0.2, weatherText: "облачно" },
   forecast: [
     { ts: Date.now(), iso: new Date().toISOString(), windKnots: 7, gustKnots: 23, directionDeg: 270, tempC: 10, precipMm: 0.2, weatherText: "облачно" },
-    { ts: Date.now() + 10800000, iso: new Date(Date.now() + 10800000).toISOString(), windKnots: 11, gustKnots: 28, directionDeg: 260, tempC: 11, precipMm: 0, weatherText: "переменная облачность" },
-    { ts: Date.now() + 21600000, iso: new Date(Date.now() + 21600000).toISOString(), windKnots: 16, gustKnots: 32, directionDeg: 250, tempC: 10, precipMm: 0.2, weatherText: "дождь" }
+    { ts: Date.now() + 86400000, iso: new Date(Date.now() + 86400000).toISOString(), windKnots: 11, gustKnots: 28, directionDeg: 260, tempC: 11, precipMm: 0.4, weatherText: "дождь" },
+    { ts: Date.now() + 172800000, iso: new Date(Date.now() + 172800000).toISOString(), windKnots: 8, gustKnots: 18, directionDeg: 230, tempC: 11, precipMm: 0, weatherText: "без осадков" }
   ]
 };
 
@@ -84,7 +138,7 @@ export default async function Home() {
   const data = (await getForecast()) || fallback;
   const current = data.current || fallback.current!;
   const category = getCombinedCategory(current.windKnots, current.gustKnots);
-  const forecast = data.forecast.length ? data.forecast.slice(0, 24) : fallback.forecast;
+  const dailyForecast = buildDailyForecast(data.forecast.length ? data.forecast : fallback.forecast);
 
   return (
     <main>
@@ -121,17 +175,17 @@ export default async function Home() {
 
         <section className="forecast">
           <div className="sectionTitle">
-            <h3>Прогноз на 3 дня</h3>
+            <h3>Средний прогноз на 3 дня</h3>
           </div>
-          <div className="forecastGrid">
-            {forecast.map((item) => {
+          <div className="forecastGrid dailyForecastGrid">
+            {dailyForecast.map((item) => {
               const slot = getCombinedCategory(item.windKnots, item.gustKnots);
               return (
-                <article className={`slot ${slot.className}`} key={item.iso}>
-                  <small>{formatTime(item.iso)}</small>
+                <article className={`slot dailySlot ${slot.className}`} key={item.key}>
+                  <small>{item.title}</small>
                   <strong>{slot.label}</strong>
-                  <p>ветер {item.windKnots} узл.</p>
-                  <p>порывы {item.gustKnots} узл.</p>
+                  <p>средний ветер {item.windKnots} узл.</p>
+                  <p>средние порывы {item.gustKnots} узл.</p>
                   <em>{item.tempC ?? "—"}° · {item.precipMm} мм · {item.weatherText}</em>
                 </article>
               );

@@ -90,7 +90,7 @@ export async function GET() {
       };
     })
     .filter((row) => row.ts >= now)
-    .slice(0, 24);
+    .slice(0, 32);
 
   return NextResponse.json({
     point: {
