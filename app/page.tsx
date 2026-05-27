@@ -1,12 +1,12 @@
 import WindyMap from "./components/WindyMap";
 
 const windLevels = [
-  { min: 0, max: 4, level: 0, colorName: "белый / серый", label: "не пиздячит", className: "calm" },
-  { min: 5, max: 9, level: 1, colorName: "голубо-синий", label: "умеренно пиздячит", className: "moderate" },
-  { min: 10, max: 16, level: 2, colorName: "зелёный", label: "нормально пиздячит", className: "normal" },
-  { min: 17, max: 21, level: 3, colorName: "жёлтый", label: "уверенно пиздячит", className: "confident" },
-  { min: 22, max: 30, level: 4, colorName: "оранжевый", label: "сильно пиздячит", className: "strong" },
-  { min: 31, max: 999, level: 5, colorName: "розовый", label: "пиздячит как не в себя", className: "insane" }
+  { min: 0, max: 4, level: 0, colorName: "белый / серый", label: "не пиздячит", className: "calm", tintClassName: "tint-calm" },
+  { min: 5, max: 9, level: 1, colorName: "голубо-синий", label: "умеренно пиздячит", className: "moderate", tintClassName: "tint-moderate" },
+  { min: 10, max: 16, level: 2, colorName: "зелёный", label: "нормально пиздячит", className: "normal", tintClassName: "tint-normal" },
+  { min: 17, max: 21, level: 3, colorName: "жёлтый", label: "уверенно пиздячит", className: "confident", tintClassName: "tint-confident" },
+  { min: 22, max: 30, level: 4, colorName: "оранжевый", label: "сильно пиздячит", className: "strong", tintClassName: "tint-strong" },
+  { min: 31, max: 999, level: 5, colorName: "розовый", label: "пиздячит как не в себя", className: "insane", tintClassName: "tint-insane" }
 ];
 
 const resultThresholds = [
@@ -106,13 +106,11 @@ export default async function Home() {
             </div>
             <p className="sub">Сейчас ветер {compass(current.directionDeg)}</p>
             <h2>{category.label}</h2>
-            <p className="tone">Итог считается по формуле: 60% основная скорость ветра + 40% порывы.</p>
-
             <div className="metrics">
-              <div><span>Ветер</span><b>{current.windKnots}</b><small>узл. · {category.wind.colorName}</small></div>
-              <div><span>Порывы</span><b>{current.gustKnots}</b><small>узл. · {category.gust.colorName}</small></div>
-              <div><span>Температура</span><b>{current.tempC ?? "—"}°</b><small>{current.weatherText}</small></div>
-              <div><span>Осадки</span><b>{current.precipMm}</b><small>мм за период</small></div>
+              <div className={`metric ${category.wind.tintClassName}`}><span>Ветер</span><b>{current.windKnots}</b><small>узл.</small></div>
+              <div className={`metric ${category.gust.tintClassName}`}><span>Порывы</span><b>{current.gustKnots}</b><small>узл.</small></div>
+              <div className="metric"><span>Температура</span><b>{current.tempC ?? "—"}°</b><small>{current.weatherText}</small></div>
+              <div className="metric"><span>Осадки</span><b>{current.precipMm}</b><small>мм за период</small></div>
             </div>
           </section>
 
@@ -124,7 +122,6 @@ export default async function Home() {
         <section className="forecast">
           <div className="sectionTitle">
             <h3>Прогноз на 3 дня</h3>
-            <p>Каждый слот окрашен по итоговой категории.</p>
           </div>
           <div className="forecastGrid">
             {forecast.map((item) => {
